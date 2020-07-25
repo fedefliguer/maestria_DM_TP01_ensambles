@@ -1,5 +1,4 @@
 # 0 PRE - INSTALL PACKAGES Y CARGA LIBRERÍAS
-
 # install.packages("lubridate")
 # install.packages("dplyr")
 # install.packages("stringi")
@@ -18,15 +17,11 @@ library(xtable)
 df_users_covid19 = readRDS("df_users_covid19.rds")
 df_tweets_covid19 = readRDS("df_tweets_covid19.rds")
 
-
-# 1 - INTRODUCCIÓN
-
+# INTRODUCCIÓN
 ggpairs(df_users, aes(alpha = 0.4), columns = c(5,6,8,9))
 ggpairs(as.data.frame(apply(df_users[c(5,6,8,9)]+1,2,FUN = log10)), aes(alpha = 0.4), columns = c(1:4))
 
-
-# 3 - ESTRUCTURA DEL DATASET Y SELECCIÓN DE DATOS
-
+# ESTRUCTURA DEL DATASET Y SELECCIÓN DE DATOS
 df_users = df_users_covid19 %>% select(
   "user_id"
   ,"screen_name"
@@ -63,14 +58,13 @@ df_tweets = df_tweets_covid19 %>% select(
   ,"retweet_status_id"
 )
 
+#  PREPROCESAMIENTO Y LIMPIEZA
 
-# 4 - PREPROCESAMIENTO Y LIMPIEZA
-
-# 4.1 - DATOS FALTANTES
+# DATOS FALTANTES
 sapply(df_tweets, function(x) sum(is.na(x)))
 sapply(df_users, function(x) sum(is.na(x)))
 
-# 4.2 - DETECCIÓN DE ATÍPICOS
+# DETECCIÓN DE ATÍPICOS
 
 # UNIVARIADOS USUARIOS
 
@@ -114,26 +108,12 @@ toboxplot = toboxplot %>% rename(
   Favoritos = favourites_count
 )
 
-boxplot(toboxplot, horizontal=TRUE,cex.axis=0.8, las = 1, col="grey")
-
 toboxplotlog = toboxplot
-
 toboxplotlog$Seguidores = log10(toboxplotlog$Seguidores + 1)
 toboxplotlog$Amigos = log10(toboxplotlog$Amigos + 1)
 toboxplotlog$Listas = log10(toboxplotlog$Listas + 1)
 toboxplotlog$Estatuses = log10(toboxplotlog$Estatuses + 1)
 toboxplotlog$Favoritos = log10(toboxplotlog$Favoritos + 1)
-
-boxplot(toboxplotlog, horizontal=TRUE,cex.axis=0.7, las = 1, col="grey", outcol="red")
-
-
-
-
-
-# Antigüedad. El atributo de la antigüedad no debería ser parámetro para la rareza de los individuos, sin embargo en caso de que existan outliers negativos (con demasiada poca antigüedad) los marcaremos para evitar incorporar información de cuentas que existen hace demasiado poco.
-df_users$antiguedad = Sys.Date()-as.Date(df_users$account_created_at)
-# FIGURA 3
-# boxplot(as.numeric(df_users$antiguedad)) # No aparecen valores atípicos siguiendo esta distribución.
 
 # UNIVARIADOS TWEETS
 
@@ -157,43 +137,19 @@ table(df_tweets$nu_urls) # No hay outliers con más de una URL
 table(df_tweets$nu_mentions) # Se marcan los twitts con más de dos menciones
 df_tweets$mentions_outlierP = case_when(df_tweets$nu_mentions > 2 ~ 1, TRUE ~ 0)
 
-# FIGURA 4
-# hashtags <- data.frame(df_tweets$nu_hashtags)
-# menciones <- data.frame(df_tweets$nu_mentions)
-# hashtags$type <- 'hashtag'
-# menciones$type <- 'mencion'
-# hashtags = hashtags %>% 
-#   rename(
-#     value = df_tweets.nu_hashtags
-#   )
-# menciones = menciones %>% 
-#   rename(
-#     value = df_tweets.nu_mentions
-#   )
-# outliersTwitts <- rbind(hashtags, menciones)
-# ggplot(outliersTwitts, aes(value, fill = type)) + 
-#   geom_histogram(alpha = 0.5, position = 'identity', xlab = "a") +
-#   xlab("Cantidad") + ylab("Frecuencia")
-
 # MULTIVARIADOS USER
 
 df_users_outliers = df_users[c("user_id", "followers_count", "friends_count", "listed_count", "statuses_count", "favourites_count")]
 df_users_outliers_vars = scale(df_users_outliers[2:6], center=TRUE)
 df_users_outliers = data.frame(df_users_outliers[1], df_users_outliers_vars)
 df_users_outliers$mahalanobis = mahalanobis(df_users_outliers_vars, colMeans(df_users_outliers_vars), cov(df_users_outliers_vars))        
-
-# FIGURA 5
-# boxplot(df_users_outliers$mahalanobis, col="grey", outcol="red")
-
+boxplot(df_users_outliers$mahalanobis, col="grey", outcol="red")
 boxplot_OM = boxplot(df_users_outliers$mahalanobis, col="grey", outcol="red")
 df_users_outliers$multivariateOutlier = case_when((df_users_outliers$mahalanobis) > boxplot_OM$stats[5] ~ 1, TRUE ~ 0)
 df_users_outliers = df_users_outliers %>% select(user_id, multivariateOutlier)
 
-df_users$bool_location = ifelse(!is.na(df_users$location)
-                                ,1
-                                ,0)
 
-#TRANSFORMACION DE LOCATIONS EN VARIABLE COUNTRY
+# TRANSFORMACION DE LOCATIONS EN VARIABLE COUNTRY
 
 #limpio locations de puntuacion
 df_users$location <- gsub("@\\w+", "", df_users$location)
@@ -206,210 +162,7 @@ df_users$location <- toupper(df_users$location)
 df_users$location <- iconv(df_users$location,from="UTF-8",to="ASCII//TRANSLIT")
 df_users$location = str_trim(df_users$location)
 
-#guardo los tokens en locations
-locations <- df_users %>% select(location) %>% unnest_tokens(word,location)
-
-my_stop_words_location <- stop_words %>% select(-lexicon) %>% bind_rows(data.frame(word = c("san","de", "la", "que", "el","en","y","a","por","los","no","para","del","se","con","un","es","las","al","una","mas","lo","su","si","esta","como","ya","mi","esto","pero","lo","son","hay","sus","más","este","le","ha","nos","sin","todos","esta","todo","hoy","dia","te","contra","esté","cuando","día","yo","sobre","les","están","qué","días","está","porque","desde","ni","han","sido","hacer","solo","2","tiene","ser","así","hasta","fue","durante","1","muy","hace","uno","cada","?","va","19","nuevos","mil","mejor","puede","nada","como","eso","ahora","mueos","cómo","estamos","entre","después","tu","menos","años","ante")))
-
-locations_clean <- locations %>% anti_join(my_stop_words_location)
-
-paises <- na.omit(locations_clean)
-
-#se toma el listado de paises y se agrupa por frecuencia
-paisCount <- paises %>% count(word)
-
-df_users[,"pais"] <- NA
-df_users[,df_users$location==""] <- NA
-
-#se corre un algoritmo para idenficar la palabra clave mas frecuente de cada location
-z=0
-c=1
-
-resultado <-  data.frame()
-
-#busco las palabras mas frecuentes en location
-for(i in 1:nrow(df_users)) {
-  
-  if (!is.na(df_users[c(i),]$location) & nchar(df_users[c(i),]$location)>0){
-    z=z+1
-    if (z>99){
-      num=100*c
-      print(num)
-      z=0
-      c=c+1
-    }
-    
-    tokens <- t(df_users[c(i),] %>% select(location) %>% unnest_tokens(word,location))
-    resultado <- resultado[0,]
-    for(v in tokens) {
-      resultado=rbind(resultado,paisCount[paisCount$word==v,])
-    }
-    if(length(resultado[which.max(resultado$n),]$word)>0){
-      df_users[c(i),]$pais<-resultado[which.max(resultado$n),]$word
-    }
-    
-    #DEBUG
-    #print(df_users[c(i),]$location)
-    #print("RESULDADOS:")
-    #print(resultado)
-    #print("MAXIMO:")
-    #print(resultado[which.max(resultado$n),]$word)
-    #print("####")
-    
-    resultado <- resultado[0,]
-  }
-}
-
-#NORMALIZACION BOLIVIA
-df_users$pais[grepl("cochabamba|bolivia|santa cruz de la sierra",df_users$location,ignore.case = TRUE)]<-"bolivia"
-
-#NORMALIZACION ESPANA
-df_users$pais[grepl("cataluna|madrid|barcelona|valencia|spain|andalucia|sevilla|zaragoza",df_users$pais,ignore.case = TRUE)]<-"espana"
-df_users$pais[grepl("pamplona|compostela|murcia|cadiz|galicia|bilbao|valladolid|alicante|TOLEDO|GRANADA|mallorca|ARAGON|VILLARCAYO|andalucia|espana|sevilla|pais vasco|malaga|catalunya|barcelona|madrid|tenerife|compostela|santander|castilla|spain|asturia|CANARIA|SANTIAGO DE COMPOSTELA",df_users$location,ignore.case = TRUE)]<-"espana"
-
-#NORMALIZACION MEXICO
-df_users$pais[df_users$pais == "roo"] <- "mexico"
-df_users$pais[grepl("tijuana|zacatecas|hermosillo|yucatan|mejico|xalapa|chihuahua|cdmx|jalisco|veracruz|queretaro|distrito|juarez|sonora|puebla|merida|hidalgo|mex|michoacan|chiapas|cuautitlan|morelos",df_users$pais,ignore.case = TRUE)]<-"mexico"
-df_users$pais[grepl("cancun|LEON FONSECA|nuevo leon|queretaro|monterrey|tamaulipas|veracruz|juarez|mexico|sonora|sinaloa|tabasco|mexicanos|miguel hidalgo|guanaju|gto|mx|TENOCHTITLAN|oaxaca|mex|san luis potosi|CUAUHTEMOC|SANTIAGO  NUEVO LEON|SANTIAGO  QUERETARO|MEXICANOS| DF",df_users$location,ignore.case = TRUE)]<-"mexico"
-
-#NORMALIZACION NICARAGUA
-df_users$pais[df_users$pais == "managua"] <- "nicaragua"
-df_users$pais[grepl("nicaragua",df_users$location,ignore.case = TRUE)]<-"nicaragua"
-
-#NORMALIZACION ECUADOR
-df_users$pais[grepl("quito|guayaquil",df_users$pais,ignore.case = TRUE)]<-"ecuador"
-
-#NORMALIZACION COLOMBIA
-df_users$pais[grepl("bogota|antioquia",df_users$pais,ignore.case = TRUE)]<-"colombia"
-df_users$pais[grepl("bucaramanga|cucuta|cordoba sucre|VILLA CAROLA|cali|colombia|monteria cordoba|monteriacordoba|cordobasucre|medellin|barranquilla|VILLAVICENCIO META|VILLAVICENCIO  META|SANTIAGO DE CALI",df_users$location,ignore.case = TRUE)]<-"colombia"
-
-#NORMALIZACION PARAGUAY
-df_users$pais[grepl("paraguay|ciudad del este|asuncion",df_users$location,ignore.case = TRUE)]<-"paraguay"
-
-#NORMALIZACION PERU
-df_users$pais[grepl("limaperu|lima|arequipa",df_users$pais,ignore.case = TRUE)]<-"peru"
-
-#NORMALIZACION VENEZUELA
-df_users$pais[grepl("caracas|maracaibo",df_users$pais,ignore.case = TRUE)]<-"venezuela"
-df_users$pais[grepl("venezuela|bolivares|EDO VARGAS|SAN FELIX|EDO VARGAS|CABUDARE|CUMANA EDO SUCRE|CUMANA  ESTADO SUCRE|TURMERO|GUATIRE|BARQUISIMETO|GUARENAS|VALERA|PUNTO FIJO  ESTADO FALCON|APURE|MARGARITA|TACHIRA  SN CRISTOBAL|SAN CRISTOBAL  TACHIRA|SAN CRISTOBAL  EDO  TACHIRA |SAN CRISTOBAL ESTADO TACHIRA|TUCACAS|EDO SUCRE|EDO  SUCRE|VA ESPARTA|MARACAY  ARAGUA|VZLA|ANZOATEGUI  SUCRE  Y MONAGAS|CARUPANO  ESTADO SUCRE|MARACAIBO ESTADO ZULIA|MONAGAS|EDO VARGAS|ESTADO VARGAS|ESTADO FALCON|EDO FALCON|GUACARA",df_users$location,ignore.case = TRUE)]<-"venezuela"
-
-#NORMALIZACION REP. DOMINICANA
-df_users$pais[grepl("dominican|rep dom|santo domingo|REP DOM|REPUBLICA DOMINICANA",df_users$location,ignore.case = TRUE)]<-"republica dominicana"
-
-#NORMALIZACION COSTA RICA
-df_users$pais[grepl("rica",df_users$pais,ignore.case = TRUE)]<-"costa rica"
-
-#NORMALIZACION PUERTO RICO
-df_users$pais[grepl("puerto",df_users$pais,ignore.case = TRUE)]<-"puerto rico"
-
-#NORMALIZACION ALEMANIA
-df_users$pais[grepl("deutschland|berlin|germany",df_users$pais,ignore.case = TRUE)]<-"alemania"
-
-#NORMALIZACION EL SALVADOR
-df_users$pais[grepl("salvador",df_users$pais,ignore.case = TRUE)]<-"el salvador"
-
-#NORMALIZACION GUATEMALA
-df_users$pais[grepl("guatemala",df_users$location,ignore.case = TRUE)]<-"guatemala"
-
-#NORMALIZACION EMIRATOS ARABES
-df_users$pais[grepl("emiratos arabes",df_users$location,ignore.case = TRUE)]<-"emiratos arabes"
-
-#NORMALIZACION CUBA
-df_users$pais[grepl("habana",df_users$pais,ignore.case = TRUE)]<-"cuba"
-df_users$pais[grepl("santiago de cuba",df_users$location,ignore.case = TRUE)]<-"cuba"
-
-#NORMALIZACION PANAMA
-df_users$pais[grepl("panama|santiago veraguas",df_users$location,ignore.case = TRUE)]<-"panama"
-
-#NORMALIZACION AUSTRALIA
-df_users$pais[grepl("sydney",df_users$location,ignore.case = TRUE)]<-"australia"
-
-#NORMALIZACION RUSIA
-df_users$pais[df_users$pais == "russia"] <- "rusia"
-
-
-#NORMALIZACION INGLATERRA
-df_users$pais[df_users$pais == "uk"] <- "inglaterra"
-df_users$pais[df_users$pais == "londres"] <- "inglaterra"
-df_users$pais[df_users$pais == "london"] <- "inglaterra"
-df_users$pais[df_users$pais == "england"] <- "inglaterra"
-df_users$pais[grepl("kingdom|GRANTCHESTER MEADOWS",df_users$location,ignore.case = TRUE)]<-"inglaterra"
-
-#NORMALIZACION IRLANDA
-df_users$pais[grepl("dublin|irlanda",df_users$location,ignore.case = TRUE)]<-"irlanda"
-
-#NORMALIZACION DINAMARCA
-df_users$pais[grepl("denmark",df_users$location,ignore.case = TRUE)]<-"dinamarca"
-
-#NORMALIZACION FRANCIA
-df_users$pais[df_users$pais == "paris"] <- "francia"
-df_users$pais[df_users$pais == "france"] <- "francia"
-df_users$pais[grepl("paris fran|paris china|MONTMARTRE",df_users$location,ignore.case = TRUE)]<-"francia"
-
-#NORMALIZACION NIGERIA
-df_users$pais[grepl("Federal Capital Territory",df_users$location,ignore.case = TRUE)]<-"nigeria"
-
-#NORMALIZACION URUGUAY
-df_users$pais[grepl("montevideo",df_users$pais,ignore.case = TRUE)]<-"uruguay"
-
-#NORMALIZACION CHILE
-df_users$pais[grepl("araucania|temuco|santiago|rancagua|serena",df_users$pais,ignore.case = TRUE)]<-"chile"
-df_users$pais[grepl("valparaiso|antofagasta|iquique|VINA DEL MAR|VILLARRICA|chile|region de los rios",df_users$location,ignore.case = TRUE)]<-"chile"
-
-#NORMALIZACION ARGENTINA
-df_users$pais[df_users$pais == "arg"] <- "argentina"
-df_users$pais[df_users$pais == "rioja"] <- "argentina"
-df_users$pais[grepl("rivadavia|tandil|pehuajo|ituzaingo|castelar|burzaco|aires|ushuaia|salta|pampa|buenos|rosario|chubut|mendoza|misiones|berazategui|catamarca|palomar|federal|palermo|cordoba|luis",df_users$pais,ignore.case = TRUE)]<-"argentina"
-df_users$pais[grepl("SAN NICOLAS DE LOS ARROYOS|corrientes|lanus|temperley|avellaneda|BOEDO|CHACO|VILLA MERCEDES|VILLA MARIA|VILLA LUZURIAGA|VILLA LURO|VILLA LUGANO|VILLA LA ANGOSTURA|VILLA CRESPO|VILLA CARLOS PAZ|VILLA HUIDOBRO|VILLA BALLESTER|VILLA ORTUZAR|SAN MARTIN DE LOS ANDES|GRAND  BOURG|MONTE GRANDE|BAHIA BLANCA|ROSARIO|VILLA RUMIPAL|VILLA CONSTITUCION|VILLA DEL PARQUE|VILLA URQUIZA|baires|tierra del fuego|caba|argen|santa fe|bs as|bsas|evita|neuquen|la plata|mar del plata|tucuman|santiago del estero|ENTRE RIOS",df_users$location,ignore.case = TRUE)]<-"argentina"
-
-
-#NORMALIZACION BRASIL
-df_users$pais[df_users$pais == "brazil"] <- "brasil"
-df_users$pais[df_users$pais == "curitiba"] <- "brasil"
-df_users$pais[df_users$pais == "brasilia"] <- "brasil"
-
-#NORMALIZACION CANADA
-df_users$pais[df_users$pais == "vancouver"] <- "canada"
-df_users$pais[df_users$pais == "toronto"] <- "canada"
-df_users$pais[df_users$pais == "ontario"] <- "canada"
-
-#NORMALIZACION USA
-
-df_users$pais[df_users$pais == "california"] <- "usa"
-df_users$pais[df_users$pais == "unidos"] <- "usa"
-df_users$pais[df_users$pais == "ca"] <- "usa"
-df_users$pais[df_users$pais == "tx"] <- "usa"
-df_users$pais[df_users$pais == "fl"] <- "usa"
-df_users$pais[df_users$pais == "nyc"] <- "usa"
-df_users$pais[df_users$pais == "miami"] <- "usa"
-df_users$pais[df_users$pais == "denver"] <- "usa"
-df_users$pais[df_users$pais == "indianapolis"] <- "usa"
-df_users$pais[df_users$pais == "orlando"] <- "usa"
-df_users$pais[grepl("texas|chicago|manhattan|alabama|MISSOURI|nueva york|new york|utah|united states|salt lake|ISLAS MARIANAS|brooklyn",df_users$location,ignore.case = TRUE)]<-"usa"
-
-#NORMALIZACION JAPON
-df_users$pais[df_users$pais == "tokyo"] <- "japon"
-
-#filtro en el campo country los paises
-countries_regex ="(china|canada|belgica|austria|australia|mexico|argentina|espana|colombia|chile|venezuela|peru|ecuador|el salvador|paraguay|usa|panama|uruguay|guatemala|puerto rico|republica dominicana|cuba|nicaragua|bolivia|honduras|costa rica|brasil|francia|canada|alemania|japon|inglaterra|italia|irlanda|emiratos arabes|dinamarca|india|nigeria|austria|suecia|puerto rico)"
-df_users$country = str_extract(df_users$pais, countries_regex)
-#paso a mayuscula
-df_users$country<-toupper(df_users$country)
-
-#12274 sumo la cantidad de registros con country definido
-sum(!is.na(df_users$country))
-#15031 sumo la cantidad de registros que tenian location
-sum(!is.na(df_users$location))
-# 81% Porcentaje de paises identificados en registros con location
-sum(!is.na(df_users$country))/sum(!is.na(df_users$location))
-
-df_users %>% filter(!is.na(country)) %>% count(country,sort=T) %>% slice(1:60) %>% ggplot(aes(x = reorder(country,n, function(n) -n), y = n)) + geom_bar(stat = "identity") + theme(axis.text.x = element_text(angle = 60,hjust = 1)) + xlab("")
-
-
 # 5. REDUCCIÓN DE DATOS Y TRANSFORMACIONES
-
-# Variables a eliminar: listed_count(users) y media_url(tweets)
-# Variables a crear: 
 
 df_users$bool_profile_banner = as.factor(ifelse(is.na(df_users$profile_banner_url)|df_users$profile_banner_url==''
                                                 ,0
@@ -446,8 +199,6 @@ df$nu_outliers = df$outliers_Hashtags + df$outliers_Mentions + df$listed_outlier
 df_final = df %>% 
   select(user_id,followers_count,friends_count,statuses_count,verified,bool_location,antiguedad,country,bool_profile_banner,multivariateOutlier,nu_outliers)
 
-
-
 df_final = df_final %>% mutate(
   Grupo = case_when(
     nu_outliers == 0 & multivariateOutlier == 0 ~ 'None outliers',
@@ -457,5 +208,4 @@ df_final = df_final %>% mutate(
   ))
 
 table(df_final$Grupo)
-
 saveRDS(df_final, "df_final.rds")
