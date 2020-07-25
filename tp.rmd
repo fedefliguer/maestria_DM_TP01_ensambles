@@ -1,9 +1,9 @@
-# 0 PRE - INSTALL PACKAGES Y CARGA LIBRERÍAS
-# install.packages("lubridate")
-# install.packages("dplyr")
-# install.packages("stringi")
-# install.packages("Rlof")
-# install.packages("xtable")
+# INSTALL PACKAGES Y CARGA LIBRERÍAS
+#install.packages("lubridate")
+#install.packages("dplyr")
+#install.packages("stringi")
+#install.packages("Rlof")
+#install.packages("xtable")
 library(lubridate)
 library(dplyr)
 library(stringi)
@@ -162,7 +162,7 @@ df_users$location <- toupper(df_users$location)
 df_users$location <- iconv(df_users$location,from="UTF-8",to="ASCII//TRANSLIT")
 df_users$location = str_trim(df_users$location)
 
-# 5. REDUCCIÓN DE DATOS Y TRANSFORMACIONES
+# REDUCCIÓN DE DATOS Y TRANSFORMACIONES
 
 df_users$bool_profile_banner = as.factor(ifelse(is.na(df_users$profile_banner_url)|df_users$profile_banner_url==''
                                                 ,0
